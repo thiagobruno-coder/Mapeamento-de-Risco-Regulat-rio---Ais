@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise Regulatória Energisa - Padrão Corporativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --energisa-blue: #005596; --energisa-orange: #F37021; --energisa-gray: #F2F2F2; --text-dark: #333333; }
+        body { font-family: 'Open Sans', sans-serif; background-color: var(--energisa-gray); color: var(--text-dark); }
+        .header-stripe { height: 8px; background: linear-gradient(90deg, var(--energisa-blue) 0%, var(--energisa-blue) 70%, var(--energisa-orange) 70%, var(--energisa-orange) 100%); }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 2rem; padding: 2rem; }
+        .table-header { background-color: var(--energisa-blue); color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .metric-card { border-left: 4px solid var(--energisa-orange); padding: 1rem; background: #fff9f5; }
+        .bar-container { display: flex; align-items: center; margin-bottom: 8px; }
+        .bar-label { width: 90px; font-weight: bold; font-size: 0.8rem; }
+        .bar-track { flex-grow: 1; background-color: #edf2f7; height: 16px; border-radius: 4px; overflow: hidden; }
+        .bar-fill { background-color: var(--energisa-blue); height: 100%; }
+        .bar-value { margin-left: 10px; font-size: 0.75rem; font-weight: 600; min-width: 90px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+        .badge-green  { background: #d1fae5; color: #065f46; }
+        .badge-blue   { background: #dbeafe; color: #1e3a8a; }
+        .badge-gray   { background: #f3f4f6; color: #6b7280; }
+        .badge-yellow { background: #fef3c7; color: #92400e; }
+        .badge-red    { background: #fee2e2; color: #991b1b; }
+        .badge-orange { background: #ffedd5; color: #9a3412; }
+
+        /* Mapa */
+        #brazil-map { width: 100%; max-width: 520px; margin: 0 auto; display: block; }
+        .state-path { fill: #dbeafe; stroke: #93c5fd; stroke-width: 0.8; transition: fill 0.2s; cursor: default; }
+        .state-path.energisa { fill: #bfdbfe; stroke: #3b82f6; stroke-width: 1.2; }
+        .map-bubble { cursor: pointer; }
+        .map-bubble circle { transition: r 0.2s, opacity 0.2s; }
+        .map-bubble:hover circle { opacity: 0.85; }
+        .map-tooltip {
+            position: fixed; background: white; border: 1px solid #e2e8f0;
+            border-radius: 8px; padding: 10px 14px; font-size: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15); pointer-events: none;
+            z-index: 999; display: none; min-width: 200px;
+        }
+
+        /* Ranking */
+        .rank-bar-track { background: #edf2f7; border-radius: 4px; height: 12px; overflow: hidden; flex-grow: 1; }
+        .rank-bar-fill { height: 100%; border-radius: 4px; }
+        .rank-energisa { background: var(--energisa-blue); }
+        .rank-other { background: #94a3b8; }
+        .rank-highlight { background: #f0fdf4; border-left: 3px solid #10b981; }
+
+        @media print { .no-print { display: none; } body { background: white; } .card { box-shadow: none; border: 1px solid #ddd; } }
+    </style>
+    <!-- Leaflet & Esri Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+</head>
+<body class="p-4 md:p-8">
+<div class="max-w-6xl mx-auto">
+
+    <!-- Cabeçalho -->
+    <header class="card !p-0 overflow-hidden">
+        <div class="p-8 flex flex-col md:flex-row justify-between items-center bg-white">
+            <div class="mb-4 md:mb-0 flex items-center space-x-2">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:#005596;">
+                    <span class="text-white font-bold text-xl">e</span>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight" style="color:#005596;">energisa</h1>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-semibold uppercase tracking-wider text-gray-500">Inteligência Regulatória</p>
+                <p class="text-xl font-light">Abril de 2026</p>
+            </div>
+        </div>
+        <div class="header-stripe"></div>
+    </header>
+
+    <!-- Título -->
+    <section class="mb-8">
+        <h2 class="text-3xl md:text-4xl font-bold leading-tight" style="color:#005596;">
+            Análise de Risco e Autos de Infração: Grupo Energisa (Dados 2018–2025)
+        </h2>
+        <p class="mt-2 text-gray-600 italic">Relatório Final Consolidado — Fonte: Base Atualizada / ANEEL (Dados Públicos)</p>
+    </section>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="card metric-card !mb-0">
+            <p class="text-xs text-gray-600 uppercase font-bold">Vlr. Inicial (Notif. 18-26)</p>
+            <h3 class="text-2xl font-bold" style="color:#005596;">R$ 136,9 <span class="text-sm font-normal">Mi</span></h3>
+            <p class="text-xs text-gray-400 mt-1">25 processos · 21 multas · 4 advertências</p>
+        </div>
+        <div class="card metric-card !mb-0" style="border-left-color:#005596; background:#f0f7ff;">
+            <p class="text-xs text-gray-600 uppercase font-bold">Vlr. Final (Multas Pagas)</p>
+            <h3 class="text-2xl font-bold" style="color:#005596;">R$ 79,7 <span class="text-sm font-normal">Mi</span></h3>
+            <p class="text-xs text-gray-400 mt-1">Excluídas as 4 advertências</p>
+        </div>
+        <div class="card metric-card !mb-0">
+            <p class="text-xs text-gray-600 uppercase font-bold">Montante Evitado</p>
+            <h3 class="text-2xl font-bold" style="color:#10b981;">R$ 57,3 Mi</h3>
+        </div>
+        <div class="card metric-card !mb-0" style="border-left-color:#10b981; background:#f0fdf4;">
+            <p class="text-xs text-gray-600 uppercase font-bold">Tx. de Redução Global</p>
+            <h3 class="text-2xl font-bold" style="color:#065f46;">41,8%</h3>
+            <p class="text-xs text-gray-400 mt-1">Tx Sucesso (advert.): 16,0%</p>
+        </div>
+    </div>
+
+    <!-- Ranking -->
+    <div class="card">
+        <h3 class="text-xl font-bold border-b-2 border-gray-100 pb-2 mb-6" style="color:#005596;">1. Exposição por Distribuidora (Inicial 2018–2026)</h3>
+        <div class="space-y-3">
+            <div class="bar-container"><span class="bar-label">EMT</span><div class="bar-track"><div class="bar-fill" style="width:100%;"></div></div><span class="bar-value" style="color:#005596;">R$ 79,4 Mi</span></div>
+            <div class="bar-container"><span class="bar-label" style="color:#F37021;">EMS</span><div class="bar-track"><div class="bar-fill" style="width:61.6%; background:#F37021;"></div></div><span class="bar-value" style="color:#F37021;">R$ 48,9 Mi</span></div>
+            <div class="bar-container"><span class="bar-label">ETO</span><div class="bar-track"><div class="bar-fill" style="width:4.3%;"></div></div><span class="bar-value">R$ 3,4 Mi</span></div>
+            <div class="bar-container"><span class="bar-label">EMR</span><div class="bar-track"><div class="bar-fill" style="width:3.6%;"></div></div><span class="bar-value">R$ 2,9 Mi</span></div>
+            <div class="bar-container"><span class="bar-label">ESE</span><div class="bar-track"><div class="bar-fill" style="width:2.1%;"></div></div><span class="bar-value">R$ 1,7 Mi</span></div>
+            <div class="bar-container"><span class="bar-label">ESS</span><div class="bar-track"><div class="bar-fill" style="width:0.8%;"></div></div><span class="bar-value">R$ 0,6 Mi</span></div>
+        </div>
+    </div>
+
+    <!-- Tabela 2 -->
+    <div class="card overflow-x-auto">
+        <h3 class="text-xl font-bold mb-1" style="color:#005596;">2. Detalhamento Técnico: Inicial vs. Final (2018–2026)</h3>
+        <p class="text-xs text-gray-500 mb-4 italic">Reduções reais identificadas através do confronto entre a penalidade inicial e o despacho final da Diretoria ANEEL.</p>
+        <table class="w-full text-left border-collapse text-sm">
+            <thead>
+                <tr class="table-header text-xs">
+                    <th class="p-3 rounded-tl">Unidade de Negócio</th>
+                    <th class="p-3 text-center">AIs</th>
+                    <th class="p-3 text-right">Vlr. Inicial (R$)</th>
+                    <th class="p-3 text-right">Vlr. Final (R$)</th>
+                    <th class="p-3 text-center">Taxa de Redução</th>
+                    <th class="p-3 text-center rounded-tr">Tx de Sucesso</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="p-3 font-bold border-b">Energisa Mato Grosso (EMT)</td>
+                    <td class="p-3 text-center border-b">11</td>
+                    <td class="p-3 text-right border-b font-bold">79.410.843,87</td>
+                    <td class="p-3 text-right border-b font-semibold" style="color:#1e40af;">67.008.032,57</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-blue">▼ 15,6%</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                </tr>
+                <tr class="bg-green-50">
+                    <td class="p-3 font-bold border-b" style="color:#065f46;">Energisa Mato Grosso do Sul (EMS)</td>
+                    <td class="p-3 text-center border-b">5</td>
+                    <td class="p-3 text-right border-b font-bold">48.903.919,59</td>
+                    <td class="p-3 text-right border-b font-bold" style="color:#059669;">1.749.500,95</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-green">▼ 96,4%</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-green">80,0%</span></td>
+                </tr>
+                <tr>
+                    <td class="p-3 font-bold border-b">Energisa Tocantins (ETO)</td>
+                    <td class="p-3 text-center border-b">1</td>
+                    <td class="p-3 text-right border-b font-bold">3.416.596,03</td>
+                    <td class="p-3 text-right border-b font-semibold" style="color:#1e40af;">2.439.434,22</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-blue">▼ 28,6%</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                </tr>
+                <tr>
+                    <td class="p-3 font-bold border-b">Energisa Minas Rio (EMR)</td>
+                    <td class="p-3 text-center border-b">2</td>
+                    <td class="p-3 text-right border-b font-bold">2.883.750,36</td>
+                    <td class="p-3 text-right border-b font-semibold" style="color:#1e40af;">2.456.218,64</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-blue">▼ 14,8%</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                </tr>
+                <tr>
+                    <td class="p-3 font-bold border-b">Energisa Sergipe (ESE)</td>
+                    <td class="p-3 text-center border-b">2</td>
+                    <td class="p-3 text-right border-b font-bold">1.687.610,28</td>
+                    <td class="p-3 text-right border-b font-semibold" style="color:#1e40af;">1.687.610,28</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                </tr>
+                <tr>
+                    <td class="p-3 font-bold border-b">Energisa Sul-Sudeste (ESS)</td>
+                    <td class="p-3 text-center border-b">3</td>
+                    <td class="p-3 text-right border-b font-bold">658.626,67</td>
+                    <td class="p-3 text-right border-b font-semibold" style="color:#1e40af;">499.273,17</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-blue">▼ 24,2%</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                </tr>
+                <tr>
+                    <td class="p-3 font-bold border-b">Energisa Rondônia (ERO)</td>
+                    <td class="p-3 text-center border-b">1</td>
+                    <td class="p-3 text-right border-b font-bold italic text-gray-400">—</td>
+                    <td class="p-3 text-right border-b font-semibold" style="color:#1e40af;">3.841.028,05</td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">—</span></td>
+                    <td class="p-3 text-center border-b"><span class="badge badge-gray">0,0%</span></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr style="background-color:#005596; color:white;">
+                    <td class="p-3 font-bold rounded-bl">TOTAL CONSOLIDADO (18-26)</td>
+                    <td class="p-3 text-center font-bold">25</td>
+                    <td class="p-3 text-right font-bold">136.961.346,80</td>
+                    <td class="p-3 text-right font-bold">79.681.097,88</td>
+                    <td class="p-3 text-center font-bold"><span class="badge" style="background:rgba(255,255,255,0.2);color:white;">▼ 41,8%</span></td>
+                    <td class="p-3 text-center font-bold rounded-br"><span class="badge" style="background:rgba(255,255,255,0.2);color:white;">16,0%</span></td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="mt-4 p-3 rounded" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+            <p class="text-xs font-bold" style="color:#065f46;">📌 Montante Evitado até hoje: <span class="text-base">R$ 57.280.248,92</span></p>
+            <div class="flex flex-wrap gap-4 mt-2 text-xs text-gray-600">
+                <span>• 4 processos convertidos para advertência (EMS)</span>
+                <span>• Reduções obtidas em instâncias recursais (EMT, ETO, EMR, ESS)</span>
+                <span>• ERO: valor inicial não consta na base (apenas decisão final)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAPA DE CONCESSÕES -->
+    <div class="card !p-0 overflow-hidden">
+        <div class="p-6 bg-slate-50 border-b border-gray-200">
+            <h3 class="text-xl font-bold" style="color:#005596;">3. Mapa de Concessões Energisa — Foco Notificação 2018-2026</h3>
+            <p class="text-sm text-gray-500">Localização das distribuidoras do Grupo Energisa e volume de multas pagas (R$).</p>
+        </div>
+        <div id="map" style="height: 520px; width: 100%; z-index: 1;"></div>
+        <div class="p-4 bg-white text-[10px] text-gray-400 border-t border-gray-100 italic">
+            Fonte Geográfica: ANEEL (SIGEL) | Camada de Áreas de Atuação (FeatureServer)
+        </div>
+    </div>
+
+
+
+    <!-- BENCHMARKING REGULATÓRIO -->
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#005596 0%,#003d6b 100%); padding:1.5rem 2rem;">
+            <h3 class="text-xl font-bold text-white">4. Benchmarking Regulatório Nacional</h3>
+            <p class="text-blue-200 text-xs mt-1">Comparativo de penalidades irrecorríveis no setor elétrico brasileiro (2018–2026)</p>
+        </div>
+
+        <!-- 4.1 Ranking por Holding -->
+        <div style="padding:2rem;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:1.5rem;">
+                <span style="background:#005596; color:white; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;">4.1</span>
+                <h4 style="font-size:13px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.5px;">Ranking por Grupo Econômico (Holdings)</h4>
+            </div>
+            <div id="ranking-holding" style="display:flex; flex-direction:column; gap:6px;"></div>
+            <p class="text-[10px] text-gray-400 mt-3 italic">Fonte: Dados públicos ANEEL — Penalidades com trânsito em julgado (2018-2026). Valores estimados para grupos concorrentes.</p>
+        </div>
+
+        <hr style="border:none; border-top:1px solid #e5e7eb; margin:0;">
+
+        <!-- 4.2 Ranking Individual -->
+        <div style="padding:2rem;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:1.5rem;">
+                <span style="background:#F37021; color:white; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;">4.2</span>
+                <h4 style="font-size:13px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.5px;">Top Distribuidoras Nacionais (Individual)</h4>
+            </div>
+            <div id="ranking-individual" style="display:flex; flex-direction:column; gap:6px;"></div>
+        </div>
+    </div>
+
+    <!-- EVOLUÇÃO TEMPORAL -->
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#005596 0%,#003d6b 100%); padding:1.2rem 2rem;">
+            <h3 class="text-xl font-bold text-white">5. Evolução Temporal de Processos (2018–2026)</h3>
+            <p class="text-blue-200 text-xs mt-1">Setor Elétrico Nacional vs. Grupo Energisa — Quantidade e Valor por Ano</p>
+        </div>
+        <div style="padding:2rem;" class="overflow-x-auto">
+            <div id="timeline-table"></div>
+
+            <!-- BOX DE INSIGHTS ESTRATÉGICOS -->
+            <div style="margin-top:2rem; padding:1.5rem; background:#f8fafc; border-left:4px solid #005596; border-radius:4px;">
+                <h4 style="font-size:12px; font-weight:800; color:#005596; text-transform:uppercase; margin-bottom:1rem; display:flex; align-items:center; gap:8px;">
+                    <svg style="width:16px;height:16px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z"/></svg>
+                    Insights Estratégicos (Evolução 2018-2026)
+                </h4>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:1.5rem;">
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">📊 Setor Nacional: 172 Autos em Ciclos Extremos</strong>
+                        Total: R$ 2,3 Bi em 172 autos (média 21,5/ano). Pico em 2024: 33 autos (+175% vs 2023) gerando R$ 741,4 Mi (+481,2%). Volume de autos não acompanha valor: 2024 teve 33 autos mas valor 4,7x maior que 2023 (12 autos). <strong>Mudança de severidade regulatória</strong>, não apenas volume.
+                    </div>
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">💰 Energisa: 5,8% do Setor com Volatilidade Extrema</strong>
+                        R$ 136,0 Mi total. Participação desigual por ano: 12,45% (2019) → 1,33% (2023) → 10,57% (2025). Variações extremas: +543,1% (2022) e +652,9% (2024). <strong>Exposição concentrada em períodos específicos</strong>, não distribuída uniformemente.
+                    </div>
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">⚠️ Valor Médio/Auto Crescente no Setor</strong>
+                        Setor: 2018 (R$ 6,2 Mi/auto) → 2024 (R$ 22,5 Mi/auto) = +263%. Energisa segue tendência: 2025 atingiu R$ 48,0 Mi. Penalidades são cada vez <strong>mais severas por infração, não aumento em volume de autos</strong>. Prioridade: qualidade de compliance.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEGMENTAÇÃO POR TEMA -->
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#005596 0%,#003d6b 100%); padding:1.2rem 2rem;">
+            <h3 class="text-xl font-bold text-white">6. Natureza de Fiscalização</h3>
+            <p class="text-blue-200 text-xs mt-1">Comparativo Setor Nacional vs. Grupo Energisa — Temas, quantidade e valor médio por AI</p>
+        </div>
+        
+        <div style="padding:2rem;">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem;">
+                        <span style="background:#94a3b8; color:white; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;">6.1</span>
+                        <h4 style="font-size:12px; font-weight:700; color:#374151; text-transform:uppercase;">Setor Nacional</h4>
+                    </div>
+                    <div id="temas-setor"></div>
+                </div>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem;">
+                        <span style="background:#005596; color:white; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;">6.2</span>
+                        <h4 style="font-size:12px; font-weight:700; color:#005596; text-transform:uppercase;">Grupo Energisa</h4>
+                    </div>
+                    <div id="temas-energisa"></div>
+                </div>
+            </div>
+
+            <!-- BOX DE INSIGHTS ESTRATÉGICOS -->
+            <div style="margin-top:2rem; padding:1.5rem; background:#f8fafc; border-left:4px solid #005596; border-radius:4px;">
+                <h4 style="font-size:12px; font-weight:800; color:#005596; text-transform:uppercase; margin-bottom:1rem; display:flex; align-items:center; gap:8px;">
+                    <svg style="width:16px;height:16px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z"/></svg>
+                    Análise por Natureza de Fiscalização
+                </h4>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:1.5rem;">
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">⚠ Concentração de Valor</strong>
+                        Os temas <strong>"Qualidade do Fornecimento"</strong> e <strong>"Ligação com Obra"</strong> concentram mais de 60% da exposição financeira do grupo.
+                    </div>
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">⚖ Severidade Atípica</strong>
+                        O tema "Ligação com Obra" apresenta a maior criticidade: <strong>R$ 47,9 Mi em um único processo</strong>, indicando rigor extremo da ANEEL.
+                    </div>
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">✅ Benchmark de Sucesso</strong>
+                        Diferente do Setor (R$ 380 Mi), a Energisa mantém exposição mínima em <strong>Geração Distribuída</strong> (R$ 1,2 Mi), sinalizando gestão superior.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 7: TEMAS POR HOLDINGS - TABELA -->
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#005596 0%,#003d6b 100%); padding:1.2rem 2rem;">
+            <h3 class="text-xl font-bold text-white">7. Exposição por Tema e Grupo Econômico (Valores 2018-2025)</h3>
+            <p class="text-blue-200 text-xs mt-1">Matriz consolidada de risco por natureza de fiscalização e holding</p>
+        </div>
+        <div style="padding:2rem;" class="overflow-x-auto">
+            <div id="temas-holdings-table"></div>
+
+            <!-- BOX DE INSIGHTS ESTRATÉGICOS -->
+            <div style="margin-top:2rem; padding:1.5rem; background:#f8fafc; border-left:4px solid #005596; border-radius:4px;">
+                <h4 style="font-size:12px; font-weight:800; color:#005596; text-transform:uppercase; margin-bottom:1rem; display:flex; align-items:center; gap:8px;">
+                    <svg style="width:16px;height:16px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z"/></svg>
+                    Insights Estratégicos (Temas por Holdings)
+                </h4>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:1.5rem;">
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">📊 Comercial Lidera Exposição</strong>
+                        Total de R$ 1.051,4 Mi (44,8% da exposição total). Enel concentra 42,1% desse tema. <strong>Energisa tem 10,3% do total</strong>, posicionando-se como 4º maior expositor em Comercial, abaixo de Enel, RGE e Equatorial.
+                    </div>
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">⚙️ Técnica: Segundo Maior Risco</strong>
+                        R$ 787,8 Mi (33,6% do total). Neoenergia lidera em Técnica (R$ 150,6 Mi), seguida por Enel (R$ 410,5 Mi). <strong>Energisa expõe apenas R$ 66,2 Mi</strong>, 8,4% do total em Técnica, indicando melhor gestão nessa natureza.
+                    </div>
+                    <div style="font-size:11px; line-height:1.5; color:#1e293b;">
+                        <strong style="display:block; color:#005596; margin-bottom:4px; font-size:12px;">✅ Continuidade: Menor Exposição Energisa</strong>
+                        Tema com R$ 367,7 Mi total. Enel domina (41,8%), Equatorial (21,0%), Light (21,6%). <strong>Energisa apenas R$ 9,0 Mi (2,4%)</strong> — significativamente abaixo da média, demonstrando conformidade em indicadores de serviço.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Notas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="card !mb-0" style="border-left: 8px solid #005596;">
+            <h3 class="text-lg font-bold mb-4" style="color:#005596;">Notas de Validação</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">
+                Análise baseada na coluna <strong>"Data da Notificação"</strong> (2018-2026). Total de 25 processos.
+            </p>
+        </div>
+        <div class="card !mb-0" style="border-left: 8px solid #F37021;">
+            <h3 class="text-lg font-bold mb-4" style="color:#F37021;">Parecer de Risco</h3>
+            <p class="text-sm text-gray-700 leading-relaxed">
+                A EMT lidera em valor de notificação (58% do grupo) no período.
+            </p>
+        </div>
+    </div>
+
+    <!-- Rodapé -->
+    <div class="card border border-gray-200" style="background:#f9f9f9;">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+            <div class="text-sm text-gray-500">
+                <p>Fonte: Coluna 'Data da Notificação' (2018-2026) | Data: 29/04/2026</p>
+            </div>
+            <button onclick="window.print()" class="no-print px-8 py-2 rounded font-bold shadow-md" style="background-color:#005596; color:white;">Imprimir</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const energisaData = [
+  { sigla:'EMR', vlr_final:2456218, vlr_inicial:2883750, n_ais:2, n_advert:0 },
+  { sigla:'EMS', vlr_final:1749500, vlr_inicial:48903919, n_ais:5, n_advert:4 },
+  { sigla:'EMT', vlr_final:67008032, vlr_inicial:79410843, n_ais:11, n_advert:0 },
+  { sigla:'ERO', vlr_final:3841028, vlr_inicial:0, n_ais:1, n_advert:0 },
+  { sigla:'ESE', vlr_final:1687610, vlr_inicial:1687610, n_ais:2, n_advert:0 },
+  { sigla:'ESS', vlr_final:499273, vlr_inicial:658626, n_ais:3, n_advert:0 },
+  { sigla:'ETO', vlr_final:2439434, vlr_inicial:3416596, n_ais:1, n_advert:0 }
+];
+
+const holdingData = [
+    { nome: 'Grupo Enel',        valor: 1051.85e6, ais: 39 },
+    { nome: 'Grupo Equatorial',  valor: 336.75e6, ais: 29 },
+    { nome: 'Grupo Neoenergia',  valor: 252.25e6, ais: 17 },
+    { nome: 'GRUPO ENERGISA',    valor: 181.63e6, ais: 26, isE: true },
+    { nome: 'CEMIG',             valor: 146.66e6, ais: 8 },
+    { nome: 'Grupo CPFL',        valor: 99.56e6,  ais: 10 },
+    { nome: 'COPEL',             valor: 8.30e6,   ais: 3 }
+];
+
+const internalEnergisa = [
+    { nome: 'ENERGISA MT',  valor: 107.80e6, ais: 11 },
+    { nome: 'ENERGISA MS',  valor: 52.31e6,  ais: 4 },
+    { nome: 'ENERGISA SE',  valor: 8.16e6,   ais: 3 },
+    { nome: 'ENERGISA MR',  valor: 2.88e6,   ais: 3 },
+    { nome: 'ENERGISA RO',  valor: 4.44e6,   ais: 1 },
+    { nome: 'ENERGISA TO',  valor: 3.42e6,   ais: 1 },
+    { nome: 'ENERGISA PB',  valor: 1.91e6,   ais: 1 },
+    { nome: 'ENERGISA SS',  valor: 0.71e6,   ais: 2 }
+];
+
+const competitors = [
+    { nome:'ENEL CE',           valor:214.38e6, ais:15 },
+    { nome:'CEEE EQTL',         valor:158.36e6, ais:13 },
+    { nome:'ENEL SP',           valor:430.27e6, ais:10 },
+    { nome:'ENEL GO',           valor:330.67e6, ais:10 },
+    { nome:'RGE',               valor:165.83e6, ais:4 },
+    { nome:'ENERGISA MT',       valor:107.80e6, ais:11, isE:true },
+    { nome:'CEMIG-D',           valor:146.66e6, ais:8 },
+    { nome:'NEO PERNAMBUCO',    valor:99.79e6,  ais:7 },
+    { nome:'CPFL PAULISTA',     valor:92.76e6,  ais:5 },
+    { nome:'LIGHT',             valor:79.48e6,  ais:6 },
+    { nome:'EQTL AL',           valor:36.18e6,  ais:6 },
+    { nome:'NEO COELBA',        valor:83.60e6,  ais:4 },
+    { nome:'ENEL RJ',           valor:76.53e6,  ais:4 },
+    { nome:'EQTL MA',           valor:57.39e6,  ais:4 },
+    { nome:'ENERGISA MS',       valor:52.31e6,  ais:4, isE:true },
+    { nome:'EQTL PA',           valor:63.43e6,  ais:3 },
+    { nome:'NEO ELEKTRO',       valor:67.25e6,  ais:3 },
+    { nome:'EDP SP',            valor:35.48e6,  ais:3 },
+    { nome:'RORAIMA ENERGIA',   valor:9.84e6,   ais:8 },
+    { nome:'AMAZONAS ENERGIA',  valor:10.57e6,  ais:6 },
+    { nome:'ENERGISA SE',       valor:8.16e6,   ais:3, isE:true },
+    { nome:'EDP ES',            valor:7.76e6,   ais:3 },
+    { nome:'ENERGISA MR',       valor:2.88e6,   ais:3, isE:true },
+    { nome:'COPEL-DIS',         valor:8.30e6,   ais:3 },
+    { nome:'CEA EQTL',          valor:10.83e6,  ais:2 },
+    { nome:'CPFL PIRATININGA',  valor:5.03e6,   ais:2 },
+    { nome:'NEO BRASÍLIA',      valor:1.41e6,   ais:2 },
+    { nome:'SULGIPE',           valor:0.84437e6, ais:2 },
+    { nome:'ENERGISA SS',       valor:0.71449e6, ais:2, isE:true },
+    { nome:'EQTL PI',           valor:10.56e6,  ais:1 },
+    { nome:'ENERGISA RO',       valor:4.44e6,   ais:1, isE:true },
+    { nome:'ENERGISA TO',       valor:3.42e6,   ais:1, isE:true },
+    { nome:'ENERGISA PB',       valor:1.91e6,   ais:1, isE:true },
+    { nome:'CPFL SANTA CRUZ',   valor:1.77e6,   ais:3 },
+    { nome:'NEO COSERN',        valor:0.19649e6, ais:1 }
+];
+
+function fmtR(v) {
+    if (v >= 1e9) return 'R$ ' + (v/1e9).toFixed(1).replace('.',',') + ' Bi';
+    if (v >= 1e6) return 'R$ ' + (v/1e6).toFixed(1).replace('.',',') + ' Mi';
+    if (v >= 1e3) return 'R$ ' + (v/1e3).toFixed(0) + ' K';
+    return 'R$ ' + v.toFixed(2);
+}
+
+function renderRanking(data, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    data.sort((a,b) => b.valor - a.valor);
+    const maxVal = data[0].valor;
+
+    data.forEach((c, i) => {
+        const pct = Math.max(2, (c.valor / maxVal) * 100);
+        const isE = c.isE || c.nome.includes('ENERGISA');
+        const pos = i + 1;
+
+        const row = document.createElement('div');
+        row.style.cssText = `
+            display:flex; align-items:center; gap:8px; padding:5px 10px; border-radius:6px;
+            transition: background 0.15s;
+            ${isE ? 'background:#eff6ff; border:1.5px solid #3b82f6;' : 'border:1px solid transparent;'}
+        `;
+        row.onmouseenter = () => { if (!isE) row.style.background = '#f1f5f9'; };
+        row.onmouseleave = () => { if (!isE) row.style.background = ''; };
+
+        const barColor = isE ? '#005596' : '#94a3b8';
+        const nameStyle = isE ? 'color:#005596;font-weight:700;' : 'color:#374151;';
+
+        const aisLabel = c.ais ? `<span style="font-size:9px;color:#9ca3af;margin-left:3px;">(${c.ais} AIs)</span>` : '';
+
+        row.innerHTML = `
+            <span style="width:22px;text-align:center;font-size:10px;font-weight:700;color:#6b7280;flex-shrink:0;">${pos}</span>
+            <span style="width:170px;font-size:11px;${nameStyle};flex-shrink:0;">${c.nome} ${aisLabel}</span>
+            <div style="flex-grow:1;background:#edf2f7;height:8px;border-radius:4px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;"></div>
+            </div>
+            <span style="width:85px;text-align:right;font-size:11px;font-weight:600;${isE ? 'color:#005596;' : 'color:#475569;'};flex-shrink:0;">${fmtR(c.valor)}</span>
+        `;
+        container.appendChild(row);
+    });
+}
+
+renderRanking(holdingData, 'ranking-holding');
+renderRanking(competitors, 'ranking-individual');
+
+
+
+const vlrSetorAno = [
+    { ano: 2018, vlr: 55651812.84 }, { ano: 2019, vlr: 164599882.74 }, { ano: 2020, vlr: 221076002.92 },
+    { ano: 2021, vlr: 100886288.40 }, { ano: 2022, vlr: 480205282.55 }, { ano: 2023, vlr: 127569782.42 },
+    { ano: 2024, vlr: 741443385.86 }, { ano: 2025, vlr: 454191565.12 }
+];
+
+const vlrEnergisaAno = [
+    { ano: 2018, vlr: 3.4e6 }, { ano: 2019, vlr: 20.5e6 }, { ano: 2020, vlr: 6.5e6 },
+    { ano: 2021, vlr: 5.8e6 }, { ano: 2022, vlr: 37.3e6 }, { ano: 2023, vlr: 1.7e6 },
+    { ano: 2024, vlr: 12.8e6 }, { ano: 2025, vlr: 48.0e6 }
+];
+
+    // Tabela Evolução Temporal (Layout Horizontal - Alto Contraste / Sem Cinza Claro)
+    (function() {
+        const el = document.getElementById('timeline-table');
+        if (!el) return;
+        const timelineSetor = [
+            { ano: 2018, qtd: 9 }, { ano: 2019, qtd: 31 }, { ano: 2020, qtd: 24 },
+            { ano: 2021, qtd: 11 }, { ano: 2022, qtd: 23 }, { ano: 2023, qtd: 12 },
+            { ano: 2024, qtd: 33 }, { ano: 2025, qtd: 29 }
+        ];
+        const timelineEnergisa = [
+            { ano: 2018, qtd: 6 }, { ano: 2019, qtd: 7 }, { ano: 2020, qtd: 3 },
+            { ano: 2021, qtd: 2 }, { ano: 2022, qtd: 3 }, { ano: 2023, qtd: 2 },
+            { ano: 2024, qtd: 1 }, { ano: 2025, qtd: 1 }
+        ];
+
+        const anos = timelineSetor.map(s => s.ano);
+        let totSA=0, totEA=0, totSV=0, totEV=0;
+        
+        let html = '<table style="width:100%; border-collapse:collapse; font-size:10px; table-layout:fixed; color:#1e293b;">';
+        html += '<colgroup><col style="width:140px;">' + anos.map(() => '<col>').join('') + '<col style="width:75px;"></colgroup>';
+        
+        // Cabeçalho (Anos) - Preto para máxima nitidez
+        html += '<thead><tr style="border-bottom:2px solid #005596;">';
+        html += '<th style="padding:12px 8px; text-align:left; color:#1e293b; text-transform:uppercase; font-size:9px; font-weight:800;">Indicador / Ano</th>';
+        anos.forEach(ano => {
+            html += `<th style="padding:12px 4px; text-align:center; color:#1e293b; font-weight:800;">${ano}</th>`;
+        });
+        html += '<th style="padding:12px 8px; text-align:center; color:#005596; font-weight:900;">TOTAL</th>';
+        html += '</tr></thead><tbody>';
+
+        // I. QUANTIDADE
+        html += '<tr><td colspan="'+(anos.length+2)+'" style="padding:12px 8px 6px; font-weight:800; color:#005596; font-size:9px; text-transform:uppercase; border-bottom:1px solid #e2e8f0;">I. Quantidade de AIs</td></tr>';
+        
+        // Setor
+        html += '<tr><td style="padding:6px 8px; color:#475569; font-weight:600;">Setor Nacional</td>';
+        timelineSetor.forEach(s => { html += `<td style="text-align:center; color:#475569;">${s.qtd}</td>`; totSA += s.qtd; });
+        html += `<td style="text-align:center; font-weight:700; color:#475569;">${totSA}</td></tr>`;
+
+        // Energisa
+        html += '<tr><td style="padding:6px 8px; color:#005596; font-weight:800;">Grupo Energisa</td>';
+        timelineEnergisa.forEach(e => { html += `<td style="text-align:center; color:#005596; font-weight:800;">${e.qtd}</td>`; totEA += e.qtd; });
+        html += `<td style="text-align:center; font-weight:900; color:#005596;">${totEA}</td></tr>`;
+
+        // % Part
+        html += '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:4px 8px; color:#475569; font-size:9px; font-style:italic;">Participação %</td>';
+        timelineSetor.forEach((s, i) => { html += `<td style="text-align:center; color:#475569; font-size:9px;">${((timelineEnergisa[i].qtd/s.qtd)*100).toFixed(1)}%</td>`; });
+        html += `<td style="text-align:center; font-weight:700; color:#475569; font-size:9px;">${((totEA/totSA)*100).toFixed(1)}%</td></tr>`;
+
+        // II. VALOR INICIAL
+        html += '<tr><td colspan="'+(anos.length+2)+'" style="padding:15px 8px 6px; font-weight:800; color:#005596; font-size:9px; text-transform:uppercase; border-bottom:1px solid #e2e8f0;">II. Valor Inicial (R$)</td></tr>';
+        
+        // Setor
+        html += '<tr><td style="padding:6px 8px; color:#475569; font-weight:600;">Setor Nacional</td>';
+        vlrSetorAno.forEach(s => { html += `<td style="text-align:center; color:#475569; font-size:9px;">${fmtR(s.vlr)}</td>`; totSV += s.vlr; });
+        html += `<td style="text-align:center; font-weight:700; color:#475569;">${fmtR(totSV)}</td></tr>`;
+
+        // Energisa
+        html += '<tr><td style="padding:6px 8px; color:#005596; font-weight:800;">Grupo Energisa</td>';
+        vlrEnergisaAno.forEach(e => { html += `<td style="text-align:center; color:#005596; font-weight:800; font-size:9px;">${fmtR(e.vlr)}</td>`; totEV += e.vlr; });
+        html += `<td style="text-align:center; font-weight:900; color:#005596; font-size:9px;">${fmtR(totEV)}</td></tr>`;
+
+        // % Part
+        html += '<tr style="border-bottom:2px solid #005596;"><td style="padding:4px 8px; color:#475569; font-size:9px; font-style:italic;">Participação %</td>';
+        vlrSetorAno.forEach((s, i) => { html += `<td style="text-align:center; color:#475569; font-size:9px;">${((vlrEnergisaAno[i].vlr/s.vlr)*100).toFixed(1)}%</td>`; });
+        html += `<td style="text-align:center; font-weight:700; color:#475569; font-size:9px;">${((totEV/totSV)*100).toFixed(1)}%</td></tr>`;
+
+        html += '</tbody></table>';
+        el.innerHTML = html;
+    })();
+
+
+// Temas - Grupo Energisa (dados validados da base)
+const temasEnergisa = [
+    { nome: 'Qualidade do Fornecimento', ais: 6, vlr: 48.26e6 },
+    { nome: 'Ligação com Obra', ais: 1, vlr: 47.99e6 },
+    { nome: 'Comercial', ais: 1, vlr: 14.38e6 },
+    { nome: 'Indicadores DER/FER', ais: 4, vlr: 13.13e6 },
+    { nome: 'Cobrança Indevida CIP', ais: 1, vlr: 12.79e6 },
+    { nome: 'Continuidade', ais: 4, vlr: 8.84e6 },
+    { nome: 'Teleatendimento', ais: 4, vlr: 3.31e6 },
+    { nome: 'Beneficiários CDE', ais: 1, vlr: 1.69e6 },
+    { nome: 'Cobr. Irregularidade', ais: 1, vlr: 1.66e6 },
+    { nome: 'Geração Distribuída', ais: 1, vlr: 1.24e6 }
+];
+
+// Temas - Setor Nacional (Dados reais ANEEL 2018-2026 - Somatório da Matriz)
+const temasSetor = [
+    { nome: 'Comercial', ais: 38, vlr: 927.81e6 },
+    { nome: 'Técnica (Qualidade)', ais: 33, vlr: 894.06e6 },
+    { nome: 'Ind. de Continuidade', ais: 19, vlr: 189.53e6 },
+    { nome: 'Acesso ao Sistema (Obra)', ais: 2, vlr: 53.54e6 },
+    { nome: 'Atendimento ao Consumidor', ais: 6, vlr: 45.28e6 },
+    { nome: 'Desempenho GD Eól/Foto', ais: 73, vlr: 34.52e6 },
+    { nome: 'Cumprimento de Determinação', ais: 3, vlr: 28.48e6 },
+    { nome: 'Anuência e Conformidade', ais: 2, vlr: 16.05e6 },
+    { nome: 'Reclamações - DER/FER', ais: 8, vlr: 15.77e6 },
+    { nome: 'Operação e Manutenção', ais: 4, vlr: 11.61e6 }
+];
+
+function renderTemasTable(data, containerId, accentColor) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const sorted = [...data].sort((a,b) => b.vlr - a.vlr);
+    const medias = sorted.map(t => t.vlr / t.ais);
+    const minM = Math.min(...medias);
+    const maxM = Math.max(...medias);
+
+    function mediaColor(v) {
+        const ratio = maxM === minM ? 0.5 : (v - minM) / (maxM - minM);
+        const r = Math.round(37 + ratio * (220 - 37));
+        const g = Math.round(99 + (1 - ratio) * (56));
+        const b = Math.round(235 + ratio * (38 - 235));
+        return `rgb(${r},${g},${b})`;
+    }
+
+    let html = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
+    html += '<thead><tr style="border-bottom:2px solid '+accentColor+';">';
+    html += '<th style="text-align:left; padding:8px 4px; color:#6b7280; font-size:9px; text-transform:uppercase;">Natureza</th>';
+    html += '<th style="text-align:center; padding:8px 4px; color:#6b7280; font-size:9px;">AIs</th>';
+    html += '<th style="text-align:right; padding:8px 4px; color:#6b7280; font-size:9px;">Valor Total</th>';
+    html += '<th style="text-align:right; padding:8px 4px; color:#6b7280; font-size:9px;">Média/AI</th>';
+    html += '</tr></thead><tbody>';
+    sorted.forEach((t, i) => {
+        const media = t.vlr / t.ais;
+        const bg = i % 2 === 0 ? '#f9fafb' : 'white';
+        const mColor = mediaColor(media);
+        html += '<tr style="background:'+bg+'; border-bottom:1px solid #f3f4f6;">';
+        html += '<td style="padding:6px 4px; font-weight:600; color:#374151;">'+t.nome+'</td>';
+        html += '<td style="padding:6px 4px; text-align:center; font-weight:700; color:'+accentColor+';">'+t.ais+'</td>';
+        html += '<td style="padding:6px 4px; text-align:right; font-weight:600;">'+fmtR(t.vlr)+'</td>';
+        html += '<td style="padding:6px 4px; text-align:right; font-weight:700; color:'+mColor+';">'+fmtR(media)+'</td>';
+        html += '</tr>';
+    });
+    const totAIs = sorted.reduce((s,t) => s+t.ais, 0);
+    const totVlr = sorted.reduce((s,t) => s+t.vlr, 0);
+    html += '</tbody><tfoot><tr style="border-top:2px solid '+accentColor+'; font-weight:700;">';
+    html += '<td style="padding:8px 4px;">TOTAL</td>';
+    html += '<td style="padding:8px 4px; text-align:center; color:'+accentColor+';">'+totAIs+'</td>';
+    html += '<td style="padding:8px 4px; text-align:right;">'+fmtR(totVlr)+'</td>';
+    html += '<td style="padding:8px 4px; text-align:right; color:#6b7280;">'+fmtR(totVlr/totAIs)+'</td>';
+    html += '</tr></tfoot></table>';
+    el.innerHTML = html;
+}
+
+renderTemasTable(temasSetor, 'temas-setor', '#94a3b8');
+renderTemasTable(temasEnergisa, 'temas-energisa', '#005596');
+
+// Dados para a Seção 7 (Matriz Tema x Setor)
+// Dados reais extraídos da base ANEEL (auto-infracao.csv) - 2018 a 2026
+const matrizTemaSetor = [
+  { "tema": "Comercial", "dists": { "Enel": {"v": 282472358.43, "a": 13}, "CPFL": {"v": 165955356.26, "a": 7}, "Equatorial": {"v": 210276127.94, "a": 9}, "Cemig": {"v": 121088814.44, "a": 3}, "Neoenergia": {"v": 133664285.56, "a": 5}, "Energisa": {"v": 14.38e6, "a": 1} } },
+  { "tema": "Técnica (Qualidade)", "dists": { "Enel": {"v": 534525331.1, "a": 11}, "CPFL": {"v": 91179964.15, "a": 3}, "Equatorial": {"v": 164251172.86, "a": 9}, "Neoenergia": {"v": 49487198.09, "a": 3}, "Copel": {"v": 6386918.81, "a": 1}, "Energisa": {"v": 48.26e6, "a": 6} } },
+  { "tema": "Ind. de Continuidade", "dists": { "Enel": {"v": 43290591.01, "a": 3}, "CPFL": {"v": 40225369.82, "a": 3}, "Equatorial": {"v": 69200384.36, "a": 4}, "Cemig": {"v": 15075127.53, "a": 1}, "Neoenergia": {"v": 11007236.22, "a": 3}, "Copel": {"v": 1911211.81, "a": 1}, "Energisa": {"v": 8.84e6, "a": 4} } },
+  { "tema": "Atendimento ao Consumidor", "dists": { "Enel": {"v": 38526686.5, "a": 1}, "Equatorial": {"v": 3452604.33, "a": 1}, "Energisa": {"v": 3.31e6, "a": 4} } },
+  { "tema": "Acesso ao Sistema (Obra)", "dists": { "Enel": {"v": 5553907.12, "a": 1}, "Energisa": {"v": 47.99e6, "a": 1} } },
+  { "tema": "Reclamações - DER/FER", "dists": { "Enel": {"v": 959585.18, "a": 1}, "CPFL": {"v": 392228.13, "a": 1}, "Equatorial": {"v": 1117140.49, "a": 1}, "Neoenergia": {"v": 196490.02, "a": 1}, "Energisa": {"v": 13.13e6, "a": 4} } },
+  { "tema": "Cumprimento de Determinação", "dists": { "Enel": {"v": 2913563.76, "a": 1}, "CPFL": {"v": 640222.41, "a": 1}, "Neoenergia": {"v": 24937665.96, "a": 1} } },
+  { "tema": "Anuência e Conformidade", "dists": { "Equatorial": {"v": 16051889.08, "a": 2} } },
+  { "tema": "Desempenho GD Eól/Foto", "dists": { "Enel": {"v": 28863572.31, "a": 62}, "CPFL": {"v": 2462483.9, "a": 6}, "Equatorial": {"v": 1963900.46, "a": 4}, "Energisa": {"v": 1.24e6, "a": 1} } },
+  { "tema": "Operação e Manutenção", "dists": { "Enel": {"v": 919708.16, "a": 1}, "Cemig": {"v": 8220988.32, "a": 2}, "Copel": {"v": 2484343.71, "a": 1} } }
+];
+const colHoldings = ['Enel', 'CPFL', 'Equatorial', 'Cemig', 'Neoenergia', 'Copel', 'Energisa'];
+
+// Dados para a Seção 7 (Matriz Tema x Distribuidora Energisa)
+const matrizTemaDist = [
+  { tema: 'Comercial', dists: { 'ETO': {v:14.38e6, a:1} } },
+  { tema: 'Técnica (Qualidade)', dists: { 'EMT': {v:35.1e6, a:3}, 'EMS': {v:10.0e6, a:2}, 'ERO': {v:3.16e6, a:1} } },
+  { tema: 'Ind. de Continuidade', dists: { 'EMT': {v:5.0e6, a:2}, 'EMR': {v:3.84e6, a:2} } },
+  { tema: 'Atendimento ao Consumidor', dists: { 'EMS': {v:3.31e6, a:4} } },
+  { tema: 'Acesso ao Sistema (Obra)', dists: { 'EMT': {v:47.99e6, a:1} } },
+  { tema: 'Reclamações - DER/FER', dists: { 'ESE': {v:8.0e6, a:2}, 'ESS': {v:5.13e6, a:2} } },
+  { tema: 'Cumprimento de Determinação', dists: {} },
+  { tema: 'Anuência e Conformidade', dists: {} },
+  { tema: 'Desempenho GD Eól/Foto', dists: { 'ESS': {v:1.24e6, a:1} } },
+  { tema: 'Operação e Manutenção', dists: {} }
+];
+const colDists = ['EMT', 'EMS', 'ERO', 'EMR', 'ETO', 'ESE', 'ESS'];
+
+function renderMatrix(data, cols, containerId, highlightCol = null) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    
+    let html = '<table style="width:100%; min-width:800px; border-collapse:collapse; font-size:10px; table-layout:fixed;">';
+    
+    // Cabeçalho
+    html += '<thead><tr style="border-bottom:2px solid #005596;">';
+    html += '<th style="text-align:left; padding:12px 8px; color:#1e293b; text-transform:uppercase; font-size:9px; width:22%;">Natureza de Fiscalização</th>';
+    cols.forEach(d => {
+        const isHighlight = d === highlightCol;
+        const color = isHighlight ? '#005596' : '#1e293b';
+        html += '<th style="text-align:center; padding:12px 4px; color:'+color+'; font-weight:800;">'+d+'</th>';
+    });
+    html += '</tr></thead><tbody>';
+    
+    // Linhas
+    data.forEach((linha, i) => {
+        const bg = i % 2 === 0 ? '#f9fafb' : 'white';
+        html += '<tr style="background:'+bg+'; border-bottom:1px solid #e2e8f0;">';
+        html += '<td style="padding:10px 8px; font-weight:700; color:#374151;">'+linha.tema+'</td>';
+        
+        cols.forEach(d => {
+            const val = linha.dists[d];
+            const isHighlight = d === highlightCol;
+            if (val) {
+                html += '<td style="padding:10px 4px; text-align:center; ' + (isHighlight ? 'background:#eff6ff;' : '') + '">';
+                html += '<div style="font-weight:800; color:'+(isHighlight ? '#005596' : '#475569')+'; font-size:11px;">'+fmtR(val.v)+'</div>';
+                html += '<div style="font-size:9px; color:#64748b; margin-top:2px; font-weight:600;">'+val.a+' AI(s)</div>';
+                html += '</td>';
+            } else {
+                html += '<td style="padding:10px 4px; text-align:center; color:#cbd5e1; font-weight:300; ' + (isHighlight ? 'background:#eff6ff;' : '') + '">-</td>';
+            }
+        });
+        
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+renderMatrix(matrizTemaSetor, colHoldings, 'matriz-setor', 'Energisa');
+renderMatrix(matrizTemaDist, colDists, 'matriz-energisa');
+
+// --- Função para Tabela de Temas por Holdings ---
+function renderTemasHoldings() {
+    const el = document.getElementById('temas-holdings-table');
+    if (!el) return;
+    
+    const dados = [
+        { tema: 'Comercial', enel: 14, equatorial: 12, neoenergia: 6, energisa: 7, cpfl: 4, cemig: 4, rge: 3, copel: 0, light: 1, edp: 0, outros: 1 },
+        { tema: 'Técnica', enel: 7, equatorial: 15, neoenergia: 4, energisa: 5, cpfl: 2, cemig: 0, rge: 0, copel: 1, light: 2, edp: 2, outros: 0 },
+        { tema: 'Indicadores de Continuidade', enel: 3, equatorial: 5, neoenergia: 4, energisa: 5, cpfl: 0, cemig: 3, rge: 1, copel: 2, light: 3, edp: 2, outros: 4 },
+        { tema: 'Indicadores de reclamações - DER e FER', enel: 1, equatorial: 1, neoenergia: 1, energisa: 4, cpfl: 1, cemig: 0, rge: 0, copel: 0, light: 0, edp: 1, outros: 2 },
+        { tema: 'Qualidade de Atendimento ao Consumidor', enel: 1, equatorial: 2, neoenergia: 0, energisa: 0, cpfl: 2, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 0 },
+        { tema: 'Verificação de Cumprimento de Determinação', enel: 2, equatorial: 0, neoenergia: 1, energisa: 1, cpfl: 1, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 0 },
+        { tema: 'Teleatendimento', enel: 1, equatorial: 0, neoenergia: 1, energisa: 2, cpfl: 0, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 0 },
+        { tema: 'Apoio ao Processo Decisório e Conformidade Regulatória', enel: 0, equatorial: 1, neoenergia: 0, energisa: 0, cpfl: 0, cemig: 0, rge: 0, copel: 0, light: 0, edp: 1, outros: 1 },
+        { tema: 'Acesso ao Sistema de Distribuição', enel: 0, equatorial: 1, neoenergia: 0, energisa: 1, cpfl: 0, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 0 },
+        { tema: 'Anuência – Contrato entre Partes Relacionadas', enel: 0, equatorial: 0, neoenergia: 0, energisa: 0, cpfl: 0, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 2 },
+        { tema: 'Supervisão Econômica e Financeira', enel: 0, equatorial: 0, neoenergia: 0, energisa: 1, cpfl: 0, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 0 },
+        { tema: 'Outros Temas (não classificados)', enel: 0, equatorial: 0, neoenergia: 0, energisa: 0, cpfl: 0, cemig: 0, rge: 0, copel: 0, light: 0, edp: 0, outros: 17 }
+    ];
+    
+    let html = '<table style="width:100%; border-collapse:collapse; font-size:10px; table-layout:fixed;">';
+    html += '<thead><tr style="border-bottom:3px solid #005596; background:#f0f4f8;">';
+    html += '<th style="text-align:left; padding:10px 8px; color:#1e293b; text-transform:uppercase; font-size:9px; font-weight:900; width:240px;">Tema de Fiscalização</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">Enel</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">Equatorial</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">Neoenergia</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#fff; background:#005596; font-weight:900; font-size:9px; border-radius:4px;">⭐ Energisa</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">CPFL</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">CEMIG</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">RGE</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">Copel</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">Light</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px;">EDP</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#666; font-weight:900; font-size:9px;">Outros</th>';
+    html += '<th style="text-align:center; padding:10px 3px; color:#1e293b; font-weight:900; font-size:9px; width:55px;">TOTAL</th>';
+    html += '</tr></thead><tbody>';
+    
+    dados.forEach((d, i) => {
+        const bg = i % 2 === 0 ? '#fafbfc' : '#ffffff';
+        const total = d.enel + d.equatorial + d.neoenergia + d.energisa + d.cpfl + d.cemig + d.rge + d.copel + d.light + d.edp + d.outros;
+        
+        html += '<tr style="background:' + bg + '; border-bottom:2px solid #d1d5db;">';
+        html += '<td style="padding:10px 8px; font-weight:700; color:#1e293b; font-size:10px;">' + d.tema + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.enel > 0 ? d.enel : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.equatorial > 0 ? d.equatorial : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.neoenergia > 0 ? d.neoenergia : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#005596; font-weight:900; background:#e0eaf8; border-radius:4px; font-size:9px;">' + (d.energisa > 0 ? d.energisa : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.cpfl > 0 ? d.cpfl : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.cemig > 0 ? d.cemig : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.rge > 0 ? d.rge : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.copel > 0 ? d.copel : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.light > 0 ? d.light : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#374151; font-weight:600; font-size:9px;">' + (d.edp > 0 ? d.edp : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; color:#666; font-weight:600; font-size:9px;">' + (d.outros > 0 ? d.outros : '—') + '</td>';
+        html += '<td style="padding:10px 3px; text-align:center; font-weight:900; color:#005596; background:#e0eaf8; border-radius:4px; font-size:9px;">' + total + '</td>';
+        html += '</tr>';
+    });
+    
+    html += '<tr style="background:#005596; color:white; font-weight:900; font-size:10px; border-top:3px solid #003d6b;">';
+    html += '<td style="padding:12px 8px;">TOTAL GERAL</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">29</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">37</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">17</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">26</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">10</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">7</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">4</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">3</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">6</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">6</td>';
+    html += '<td style="padding:12px 3px; text-align:center;">27</td>';
+    html += '<td style="padding:12px 3px; text-align:center;"><strong>172</strong></td>';
+    html += '</tr>';
+    
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+renderTemasHoldings();
+
+// --- Lógica do Mapa ---
+const mapCoords = {
+    'EMT': [-12.6, -55.4],
+    'EMS': [-20.4, -54.6],
+    'ERO': [-10.9, -62.9],
+    'EMR': [-21.1, -42.3],
+    'ETO': [-10.1, -48.3],
+    'ESE': [-10.9, -37.0],
+    'ESS': [-22.5, -48.6]
+};
+
+const map = L.map('map', { scrollWheelZoom: false }).setView([-15.78, -52.0], 4);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+}).addTo(map);
+
+// Camada ANEEL SIGEL
+try {
+    L.esri.featureLayer({
+        url: 'https://sigel.aneel.gov.br/arcgis/rest/services/PORTAL/%C3%81rea_de_Atua%C3%A7%C3%A3o/FeatureServer/0',
+        where: "NOM_AGENTE LIKE '%ENERGISA%'",
+        style: function () {
+            return { color: '#F37021', weight: 1.5, fillOpacity: 0.15, fillColor: '#F37021' };
+        }
+    }).addTo(map);
+} catch(e) { console.warn("Erro ao carregar SIGEL:", e); }
+
+// Adicionar Marcadores das Distribuidoras
+energisaData.forEach(d => {
+    const coords = mapCoords[d.sigla];
+    if (coords) {
+        const marker = L.circleMarker(coords, {
+            radius: Math.max(8, Math.sqrt(d.vlr_final / 100000)),
+            fillColor: "#005596",
+            color: "#fff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(map);
+
+        const popupContent = `
+            <div style="font-family:'Open Sans', sans-serif; min-width:160px;">
+                <h4 style="margin:0; color:#005596; border-bottom:1px solid #eee; padding-bottom:5px;"><b>Energisa ${d.sigla}</b></h4>
+                <div style="margin-top:8px; font-size:11px;">
+                    <p style="margin:2px 0;"><b>Multas Pagas:</b> <span style="color:#1e40af; font-weight:700;">${fmtR(d.vlr_final)}</span></p>
+                    <p style="margin:2px 0;"><b>Processos (AIs):</b> ${d.n_ais}</p>
+                    <p style="margin:2px 0;"><b>Advertências:</b> ${d.n_advert}</p>
+                </div>
+            </div>
+        `;
+        marker.bindPopup(popupContent);
+    }
+});
+
+</script>
+</body>
+</html>
